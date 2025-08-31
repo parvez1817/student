@@ -13,13 +13,14 @@ interface DashboardProps {
 
 interface StatusResponse {
   success: boolean;
-  status: 'none' | 'under-review' | 'approved-printing' | 'ready-pickup';
+  status: 'none' | 'under-review' | 'approved-printing' | 'ready-pickup' | 'rejected';
   formEnabled: boolean;
   buttonText: string;
   details: {
     hasIdCardRequest: boolean;
     isPrinting: boolean;
     isReadyForPickup: boolean;
+    isRejected: boolean;
   };
 }
 
@@ -37,6 +38,17 @@ interface TransferResponse {
   transferredCount: number;
 }
 
+interface RejectedCardResponse {
+  found: boolean;
+  rejectedCard?: {
+    registerNumber: string;
+    name: string;
+    rejectionReason: string;
+    createdAt: string;
+  };
+  error?: string;
+}
+
 const Dashboard: React.FC<DashboardProps> = ({ onLogout, registerNumber, onLogin, historyData }) => {
   const [currentStep, setCurrentStep] = useState(0); // 0 = not started, 1 = submitted, 2 = under review, 3 = approved, 4 = ready
   const [isPrintingActive, setIsPrintingActive] = useState(false);
@@ -45,6 +57,13 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout, registerNumber, onLogin
   const [buttonText, setButtonText] = useState('Submit Request');
   const [isTransferring, setIsTransferring] = useState(false);
   const [transferMessage, setTransferMessage] = useState<string | null>(null);
+  const [showRejectedPopup, setShowRejectedPopup] = useState(false);
+  const [rejectedCardData, setRejectedCardData] = useState<{
+    registerNumber: string;
+    name: string;
+    createdAt: string;
+  } | null>(null);
+  const [isTransferringRejected, setIsTransferringRejected] = useState(false);
 
   useEffect(() => {
     if (registerNumber) {
@@ -100,6 +119,20 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout, registerNumber, onLogin
           setFormEnabled(true);
           setButtonText('Submit Request');
           setCurrentStep(0);
+        });
+
+      // Check for rejected ID cards
+      fetch(`http://localhost:5000/api/rejectedidcards/${registerNumber}`)
+        .then(res => res.ok ? res.json() : { found: false })
+        .then((data: RejectedCardResponse) => {
+          console.log('Rejected ID card check response:', data);
+          if (data.found && data.rejectedCard) {
+            setRejectedCardData(data.rejectedCard);
+            setShowRejectedPopup(true);
+          }
+        })
+        .catch((error) => {
+          console.error('Error checking rejected ID cards:', error);
         });
     }
   }, [registerNumber]);
@@ -160,13 +193,90 @@ const Dashboard: React.FC<DashboardProps> = ({ onLogout, registerNumber, onLogin
     }
   };
 
+  const handleTransferRejectedToHistory = async () => {
+    if (!registerNumber) return;
+
+    setIsTransferringRejected(true);
+
+    try {
+      const response = await fetch(`http://localhost:5000/api/rejectedidcards/transfer-to-history/${registerNumber}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      const data: TransferResponse = await response.json();
+
+      if (data.success) {
+        // Close the popup and reset the state
+        setShowRejectedPopup(false);
+        setRejectedCardData(null);
+        // Refresh the status after successful transfer
+        fetch(`http://localhost:5000/api/status/${registerNumber}`)
+          .then(res => res.ok ? res.json() : { success: false })
+          .then((data: StatusResponse) => {
+            if (data.success) {
+              setFormEnabled(data.formEnabled);
+              setButtonText(data.buttonText);
+            }
+          });
+      } else {
+        console.error('Failed to transfer rejected card:', data.message);
+      }
+    } catch (error) {
+      console.error('Error transferring rejected card to history:', error);
+    } finally {
+      setIsTransferringRejected(false);
+    }
+  };
+
   // Determine if form should be disabled
   const isFormDisabled = currentStep > 0;
 
   return (
     <div className="min-h-screen bg-blue-gradient flex">
+      {/* Rejected Card Popup */}
+      {showRejectedPopup && rejectedCardData && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full shadow-2xl">
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Request Rejected</h3>
+              <p className="text-gray-600 text-sm">
+                The ID card request has been rejected. Try again.
+              </p>
+            </div>
+            
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+              <p className="text-red-700 text-sm">The ID card request has been rejected. Try again.</p>
+            </div>
+
+              <p className="text-gray-500 text-xs text-center mb-4">
+                Rejected on: {new Date(rejectedCardData.createdAt).toLocaleDateString()}
+              </p>
+
+            <button
+              onClick={handleTransferRejectedToHistory}
+              disabled={isTransferringRejected}
+              className="w-full bg-red-600 hover:bg-red-700 text-white font-medium py-3 px-4 rounded-lg transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isTransferringRejected ? (
+                <div className="flex items-center justify-center space-x-2">
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                  <span>Processing...</span>
+                </div>
+              ) : (
+                'OK'
+              )}
+            </button>
+          </div>
+        </div>
+      )} 
+
       {/* Main Content */}
-      <div className="flex-1">
+      <div className={`flex-1 ${showRejectedPopup ? 'blur-sm' : ''}`}>
         <Navigation onLogout={onLogout} />
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           <div className="mb-8">

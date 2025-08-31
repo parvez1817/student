@@ -93,6 +93,36 @@ const accHistoryIdSchema = new mongoose.Schema({
 });
 const AccHistoryId = mongoose.model('AccHistoryId', accHistoryIdSchema, 'acchistoryid');
 
+// 6️⃣ Rejected ID cards collection → rejectedidcards
+const rejectedIdCardSchema = new mongoose.Schema({
+  registerNumber: { type: String, required: true, unique: true },
+  name: String,
+  dob: String,
+  department: String,
+  year: String,
+  section: String,
+  libraryCode: String,
+  reason: String,
+  createdAt: { type: Date, default: Date.now },
+});
+const RejectedIdCard = mongoose.model('RejectedIdCard', rejectedIdCardSchema, 'rejectedidcards');
+
+// 7️⃣ Rejected history ID collection → rejhistoryids
+const rejHistoryIdSchema = new mongoose.Schema({
+  registerNumber: { type: String, required: true },
+  name: String,
+  dob: String,
+  department: String,
+  year: String,
+  section: String,
+  libraryCode: String,
+  reason: String,
+  createdAt: { type: Date },
+  copiedAt: { type: Date, default: Date.now },
+  sourceCollection: { type: String, default: 'rejectedidcards' },
+});
+const RejHistoryId = mongoose.model('RejHistoryId', rejHistoryIdSchema, 'rejhistoryids');
+
 // =========================
 // ✅ Routes
 // =========================
@@ -239,10 +269,11 @@ app.get('/api/status/:registerNumber', async (req, res) => {
     const registerNumber = req.params.registerNumber.trim();
     console.log('Checking comprehensive status for register number:', registerNumber);
 
-    const [idCardRequest, printingStatus, acceptedStatus] = await Promise.all([
+    const [idCardRequest, printingStatus, acceptedStatus, rejectedStatus] = await Promise.all([
       IdCard.findOne({ registerNumber }),
       PrintId.findOne({ registerNumber }),
-      AcceptedIdCard.findOne({ registerNumber })
+      AcceptedIdCard.findOne({ registerNumber }),
+      RejectedIdCard.findOne({ registerNumber })
     ]);
 
     let status = 'none';
@@ -261,6 +292,10 @@ app.get('/api/status/:registerNumber', async (req, res) => {
       status = 'ready-pickup';
       formEnabled = true;
       buttonText = 'Submit Request';
+    } else if (rejectedStatus) {
+      status = 'rejected';
+      formEnabled = false;
+      buttonText = 'Request rejected';
     }
 
     res.json({
@@ -271,7 +306,8 @@ app.get('/api/status/:registerNumber', async (req, res) => {
       details: {
         hasIdCardRequest: !!idCardRequest,
         isPrinting: !!printingStatus,
-        isReadyForPickup: !!acceptedStatus
+        isReadyForPickup: !!acceptedStatus,
+        isRejected: !!rejectedStatus
       }
     });
   } catch (error) {
@@ -356,8 +392,95 @@ app.post('/api/acceptedidcards/transfer-to-history/:registerNumber', async (req,
     console.error('Error transferring accepted ID cards to history:', error);
     res.status(500).json({ success: false, error: 'Server error during transfer' }); 
   } 
-}); 
+});
+
+// 🔍 Check if registerNumber is in rejectedidcards
+app.get('/api/rejectedidcards/:registerNumber', async (req, res) => {
+  try {
+    const registerNumber = req.params.registerNumber.trim();
+    console.log('Checking rejectedidcards collection for register number:', registerNumber);
+
+    const rejectedCard = await RejectedIdCard.findOne({ registerNumber });
+    console.log('RejectedIdCard query result:', rejectedCard);
+
+    if (rejectedCard) {
+      res.json({ 
+        found: true, 
+        rejectedCard: {
+          registerNumber: rejectedCard.registerNumber,
+          name: rejectedCard.name,
+          rejectionReason: rejectedCard.rejectionReason,
+          createdAt: rejectedCard.createdAt
+        }
+      });
+    } else {
+      res.json({ found: false });
+    }
+  } catch (error) {
+    console.error('Error checking rejectedidcards collection:', error);
+    res.status(500).json({ found: false, error: 'Server error' });
+  }
+});
+
+// ✅ Transfer rejected ID card to history
+app.post('/api/rejectedidcards/transfer-to-history/:registerNumber', async (req, res) => {
+  try {
+    const registerNumber = req.params.registerNumber.trim();
+    console.log('Transferring rejected ID card to history for register number:', registerNumber);
+
+    const rejectedCard = await RejectedIdCard.findOne({ registerNumber });
+    console.log('Found rejected ID card to transfer:', rejectedCard);
+
+    if (!rejectedCard) {
+      return res.status(404).json({ success: false, message: 'No rejected ID card found for this user.' });
+    }
+
+    // Create history record
+    const historyRecord = new RejHistoryId({
+      registerNumber: rejectedCard.registerNumber,
+      name: rejectedCard.name,
+      dob: rejectedCard.dob,
+      department: rejectedCard.department,
+      year: rejectedCard.year,
+      section: rejectedCard.section,
+      libraryCode: rejectedCard.libraryCode,
+      reason: rejectedCard.reason,
+      createdAt: rejectedCard.createdAt,
+      sourceCollection: 'rejectedidcards'
+    });
+    
+    await historyRecord.save();
+    await RejectedIdCard.deleteOne({ _id: rejectedCard._id });
+    
+    console.log('Successfully transferred rejected card to history');
+
+    res.json({ 
+      success: true, 
+      message: 'Successfully transferred rejected ID card to history.',
+      transferredCount: 1
+    });
+  } catch (error) {
+    console.error('Error transferring rejected ID card to history:', error.message);
+    console.error('Stack trace:', error.stack);
+    res.status(500).json({ success: false, error: 'Server error during transfer' }); 
+  } 
+});
  
+app.get('/api/rejhistoryids/user/:registerNumber', async (req, res) => {
+  try {
+    const registerNumber = req.params.registerNumber.trim();
+    console.log('Fetching rejected history ID cards for register number:', registerNumber);
+
+    const rejectedHistoryCards = await RejHistoryId.find({ registerNumber }).sort({ createdAt: -1 });
+    console.log('Found rejected history ID cards:', rejectedHistoryCards);
+
+    res.json(rejectedHistoryCards);
+  } catch (error) {
+    console.error('Error fetching rejected history ID cards for user:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
 // Start server 
 app.listen(PORT, () => { 
   console.log(`Server running on http://localhost:${PORT}`);
