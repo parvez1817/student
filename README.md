@@ -1,73 +1,173 @@
-# Welcome to your Lovable project
+# Campus ID Flow - Student ID Card Management System
 
-## Project info
+A comprehensive web application for managing student ID card reissue requests at Sona College of Technology.
 
-**URL**: https://lovable.dev/projects/6b96bdeb-02da-40d9-a788-bcfc83d9f353
+## Project Structure
 
-## How can I edit this code?
-
-There are several ways of editing your application.
-
-**Use Lovable**
-
-Simply visit the [Lovable Project](https://lovable.dev/projects/6b96bdeb-02da-40d9-a788-bcfc83d9f353) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+```
+campus-id-flow/
+├── frontend/                 # React frontend application
+│   ├── src/
+│   │   ├── components/      # React components
+│   │   ├── pages/          # Page components
+│   │   ├── hooks/          # Custom React hooks
+│   │   ├── lib/            # Utility libraries
+│   │   └── ...
+│   ├── public/             # Static assets
+│   └── package.json        # Frontend dependencies
+├── backend/                 # Node.js/Express backend
+│   ├── index.js            # Main server file
+│   └── package.json        # Backend dependencies
+├── docs/                   # Documentation files
+│   ├── TODO.md
+│   └── VALIDATION_SYSTEM.md
+└── README.md
 ```
 
-**Edit a file directly in GitHub**
+## Features
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+- **Student Authentication**: Secure login system using register numbers
+- **ID Card Request Management**: Submit and track ID card reissue requests
+- **Live Tracking**: Real-time status updates for submitted requests
+- **Request History**: View previous accepted and rejected requests
+- **Responsive Design**: Works seamlessly on desktop and mobile devices
+- **Status Management**: Comprehensive workflow from submission to pickup
 
-**Use GitHub Codespaces**
+## Technology Stack
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+### Frontend
+- **React 18** with TypeScript
+- **Vite** for fast development and building
+- **Tailwind CSS** for styling
+- **shadcn/ui** for UI components
+- **React Router** for navigation
+- **React Query** for data fetching
 
-## What technologies are used for this project?
+### Backend
+- **Node.js** with Express.js
+- **MongoDB** with Mongoose ODM
+- **Multer** for file uploads
+- **CORS** for cross-origin requests
 
-This project is built with:
+## Getting Started
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+### Prerequisites
+- Node.js (v16 or higher)
+- MongoDB database
+- npm or yarn package manager
 
-## How can I deploy this project?
+### Installation
 
-Simply open [Lovable](https://lovable.dev/projects/6b96bdeb-02da-40d9-a788-bcfc83d9f353) and click on Share -> Publish.
+1. **Clone the repository**
+   ```bash
+   git clone <repository-url>
+   cd campus-id-flow
+   ```
 
-## Can I connect a custom domain to my Lovable project?
+2. **Install Frontend Dependencies**
+   ```bash
+   cd frontend
+   npm install
+   ```
 
-Yes, you can!
+3. **Install Backend Dependencies**
+   ```bash
+   cd ../backend
+   npm install
+   ```
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+4. **Environment Setup**
+   Create a `.env` file in the backend directory:
+   ```env
+   MONGODB_URI=your_mongodb_connection_string
+   PORT=5000
+   ```
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+### Running the Application
+
+1. **Start the Backend Server**
+   ```bash
+   cd backend
+   npm run dev
+   ```
+   The backend will run on `http://localhost:5000`
+
+2. **Start the Frontend Development Server**
+   ```bash
+   cd frontend
+   npm run dev
+   ```
+   The frontend will run on `http://localhost:8080`
+
+## API Endpoints
+
+### Authentication
+- `POST /api/login` - Student login with register number
+
+### ID Card Management
+- `POST /api/idcards` - Submit new ID card request
+- `GET /api/idcards` - Fetch all applications (admin)
+- `GET /api/idcards/:registerNumber` - Fetch specific application
+- `PATCH /api/idcards/:registerNumber/status` - Update application status
+
+### Status Tracking
+- `GET /api/status/:registerNumber` - Get comprehensive status
+- `GET /api/printids/:registerNumber` - Check printing status
+- `GET /api/acceptedidcards/:registerNumber` - Check accepted status
+- `GET /api/rejectedidcards/:registerNumber` - Check rejected status
+
+### History Management
+- `GET /api/acchistoryid/user/:registerNumber` - Get accepted history
+- `GET /api/rejhistoryids/user/:registerNumber` - Get rejected history
+- `POST /api/acceptedidcards/transfer-to-history/:registerNumber` - Transfer to history
+
+## Workflow
+
+1. **Login**: Students log in using their register number
+2. **Status Check**: System checks current status across all collections
+3. **Form Submission**: Students can submit requests when eligible
+4. **Live Tracking**: Real-time updates on request progress
+5. **History Management**: Completed requests are moved to history
+
+## Database Collections
+
+- `regnumbers` - Valid register numbers for login
+- `idcards` - Active ID card requests
+- `printids` - Requests currently being printed
+- `acceptedidcards` - Accepted requests ready for pickup
+- `rejectedidcards` - Rejected requests
+- `acchistoryid` - Historical accepted requests
+- `rejhistoryids` - Historical rejected requests
+
+## Development
+
+### Frontend Development
+```bash
+cd frontend
+npm run dev        # Start development server
+npm run build      # Build for production
+npm run lint       # Run ESLint
+```
+
+### Backend Development
+```bash
+cd backend
+npm run dev        # Start with nodemon
+npm start          # Start production server
+```
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Test thoroughly
+5. Submit a pull request
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Support
+
+For support and questions, contact the development team or create an issue in the repository.
